@@ -2,7 +2,7 @@
   "description": "just inject user scripts",
   "manifest_version": 2,
   "name": "tiny user script manager",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "background": {
     "scripts": ["background-script.js"]
   },

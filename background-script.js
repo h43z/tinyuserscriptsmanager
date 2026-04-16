@@ -20,13 +20,13 @@
     // fetch the individual userscripts sequentially
     for (const userScriptURL of config[pattern]){
       const userScript = await fetch(userScriptURL)
-      cached.push(await userScript.text())
+      cached.push(encodeURI(await userScript.text()))
     }
 
     cache.push(cached)
   }
 
-  console.log(`The cache (precombiled regex, with fetched user scripts) is`, cache)
+  console.log(`The cache (precombiled regex, fetched and encoded user scripts) is`, cache)
 
   browser.webNavigation.onCommitted.addListener(async (details) => {
     // ignore iframes
@@ -49,7 +49,7 @@
           {
             function injectUserScript(){
               const userScript = document.createElement("script");
-              userScript.src = "data:text/javascript;base64,${btoa(userScript)}";
+              userScript.src = "data:text/javascript,${userScript}";
               userScript.async = true; /* don't block parsing of HTML during "download" */
               document.documentElement.prepend(userScript);
             }
@@ -74,7 +74,8 @@
           }
          `
 
-        console.log(`injecting a cached user script`)
+        console.log(`injecting a cached user script`,
+          userScript.length > 25 ? userScript.slice(0, 22) + "..." : userScript)
 
         browser.tabs.executeScript(details.tabId, {
           code: contentScript,

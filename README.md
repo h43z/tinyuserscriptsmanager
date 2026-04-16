@@ -19,7 +19,7 @@ Example configuration hosted somewhere (eg. gist.github.com).
     // The array provides the scripts you want to inject, in this case a
     // user script fetched from https://somdomain.com/and-path-to-my/userscript.js
 
-    "^https:\/\/google\.com$": [
+    "^https:\/\/google\.com/$": [
         "https://somdomain.com/and-path-to-my/userscript.js"
     ],
 
@@ -45,5 +45,8 @@ data:,{".*":["data:,console.log('tiny user script injected into all sites!')"]}
 
 If you change the configuration URL (in the extension preferences), toggle the
 extension off/on to make it use the new configuration.
+
+To debug issues it may be helpful to *inspect* the extension at
+`about:debugging#/runtime/this-firefox`
 
 Available as a firefox addon at https://addons.mozilla.org/en-US/firefox/addon/tinyuserscriptmanager/
