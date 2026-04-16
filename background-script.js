@@ -11,26 +11,34 @@
   const config = await (await fetch(configUrl)).json()
   console.log(`The fetched config is`, config)
 
-  const cache = {}
+  const cache = []
   for (const pattern in config){
+    // pre create the regex object
+    const regex = new RegExp(pattern)
+    // store it at first index
+    const cached = [regex]
+    // fetch the individual userscripts sequentially
     for (const userScriptURL of config[pattern]){
-      cache[pattern] ??= []
       const userScript = await fetch(userScriptURL)
-      cache[pattern].push(await userScript.text())
+      cached.push(await userScript.text())
     }
+
+    cache.push(cached)
   }
 
-  console.log(`The cache (with fetched user scripts) is`, cache)
+  console.log(`The cache (precombiled regex, with fetched user scripts) is`, cache)
 
   browser.webNavigation.onCommitted.addListener(async (details) => {
+    // ignore iframes
     if (details.frameId !== 0) return
 
-    for (const pattern in config){
-      if (!RegExp(pattern).test(details.url)) continue
+    for (const cached of cache){
+      if (!cached[0].test(details.url)) continue
 
-      console.log(`The URL ${details.url} matched pattern ${pattern}`)
+      console.log(`The URL ${details.url} matched regex ${cached[0]}`)
 
-      for (const [index, userScript] of cache[pattern].entries()){
+      for (let i = 1; i < cached.length; i++) {
+        const userScript = cached[i]
         // To get a userscript into the context of a webpage we have to go
         // through a contentscript. A injected contentscript can then inject
         // a script tag which loads the userscript.
@@ -66,7 +74,7 @@
           }
          `
 
-        console.log(`injecting cached user script from`, config[pattern][index] )
+        console.log(`injecting a cached user script`)
 
         browser.tabs.executeScript(details.tabId, {
           code: contentScript,
