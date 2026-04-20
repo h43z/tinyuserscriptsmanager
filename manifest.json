@@ -1,15 +1,16 @@
 {
   "description": "just inject user scripts",
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "tiny user script manager",
   "version": "0.0.7",
   "background": {
-    "scripts": ["background-script.js"]
+    "scripts": ["background-script.js"],
+    "type": "module"
   },
   "options_ui": {
     "page": "options.html"
   },
-  "permissions": ["webNavigation", "storage", "<all_urls>"],
+  "permissions": ["webNavigation", "storage", "scripting"],
   "browser_specific_settings": {
     "gecko": {
       "id": "tinyuserscripts@h43z",
