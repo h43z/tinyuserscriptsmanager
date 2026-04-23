@@ -1,8 +1,10 @@
-(async _=> {
+const cache = []
+
+async function main(){
   let { configUrl } = await browser.storage.local.get('configUrl')
 
   if(!configUrl){
-    configUrl = `data:,{".*":["data:,console.log('tiny user script injected into all sites')"]}`
+    configUrl = `data:,{".*":["data:,console.log('tiny user script injected into all sites 😀')"]}`
     await browser.storage.local.set({configUrl})
   }
 
@@ -11,17 +13,20 @@
   const config = await (await fetch(configUrl)).json()
   console.log(`The fetched config is`, config)
 
-  const cache = []
   const urlMatches = []
   for (const pattern in config){
-    // pre create the regex object
+    // Pre create the regex object to safe a little time later
     const regex = new RegExp(pattern)
-    // store patterns to pass to browser.webNavigation.onCommitted,
-    // this way we check events which are necessary
-    urlMatches.push({ urlMatches: pattern})
-    // store it at first index
     const cached = [regex]
-    // fetch the individual userscripts sequentially
+
+    // Store patterns to pass them later filter to
+    // browser.webNavigation.onCommitted,
+    // this way the listener only runs if really necessary, though having a
+    // config with a userscript that is injected into ALL websites makes the 
+    // filter effectively useless
+    urlMatches.push({ urlMatches: pattern})
+
+    // Fetch the individual userscripts sequentially
     for (const userScriptURL of config[pattern]){
       const userScript = await fetch(userScriptURL)
       cached.push(encodeURI(await userScript.text()))
@@ -32,26 +37,31 @@
 
   console.log(`The cache (precombiled regex, fetched and encoded user scripts) is`, cache)
 
-  browser.webNavigation.onCommitted.addListener(async (details) => {
-    // ignore iframes
-    if (details.frameId !== 0) return
+  browser.webNavigation.onCommitted.addListener(onCommitListener, {
+    url: urlMatches
+  })
+}
 
-    console.log('One of WebNavigation URL filter matched, need to check which one')
+async function onCommitListener(details){
+  // Ignore iframes
+  if (details.frameId !== 0) return
 
-    for (const cached of cache){
-      if (!cached[0].test(details.url)) continue
+  console.log('One of WebNavigation URL filter matched, need to check which one')
 
-      console.log(`The URL ${details.url} matched regex ${cached[0]}`)
+  for (const cached of cache){
+    if (!cached[0].test(details.url)) continue
 
-      for (let i = 1; i < cached.length; i++) {
-        const userScript = cached[i]
-        // To get a userscript into the context of a webpage we have to go
-        // through a contentscript. A injected contentscript can then inject
-        // a script tag which loads the userscript.
-        // Converting the userScript into any kind of URL (here data URL)
-        // allows us to bypass all Content Security Policies of a page ecxept
-        // the sandbox directive.
-        const contentScript =  `
+    console.log(`The URL ${details.url} matched regex ${cached[0]}`)
+
+    for (let i = 1; i < cached.length; i++) {
+      const userScript = cached[i]
+      // To get a userscript into the context of a webpage we have to go
+      // through a contentscript. A injected contentscript can then inject
+      // a script tag which loads the userscript.
+      // Converting the userScript into any kind of URL (here data URL)
+      // allows us to bypass all Content Security Policies of a page except
+      // if it hs the sandbox directive.
+      const contentScript =  `
           {
             function injectUserScript(){
               const userScript = document.createElement("script");
@@ -80,19 +90,15 @@
           }
          `
 
-        console.log(`injecting a cached user script`,
-          userScript.length > 25 ? userScript.slice(0, 22) + "..." : userScript)
+      console.log(`injecting a cached user script`,
+        userScript.length > 25 ? userScript.slice(0, 22) + "..." : userScript)
 
-        browser.tabs.executeScript(details.tabId, {
-          code: contentScript,
-          runAt: "document_start"
-        })
-      }
+      browser.tabs.executeScript(details.tabId, {
+        code: contentScript,
+        runAt: "document_start"
+      })
     }
-  },
-    {
-      url: urlMatches
-    }
-  )
-})()
+  }
+}
 
+main()
