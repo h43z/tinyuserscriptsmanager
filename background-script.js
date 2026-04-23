@@ -57,11 +57,34 @@ async function onCommittedListener(details){
       browser.scripting.executeScript({
         injectImmediately: true,
         target: { tabId: details.tabId },
-        func: userScript => {
-          eval(userScript)
+        func: userScriptCode => {
+          function injectUserScript(){
+            const userScript = document.createElement("script");
+            userScript.src = `data:text/javascript,${userScriptCode}`;
+            userScript.async = true; /* don't block parsing of HTML during "download" */
+            document.documentElement.prepend(userScript);
+          }
+
+          if(document.documentElement){
+            // minimal DOM is already there inject right away
+            injectUserScript()
+          }else{
+            // wait for document.documentElement to appear in the DOM
+            // to inject userscript as early as possible
+            const observer = new MutationObserver(function () {
+              if(document.documentElement) {
+                observer.disconnect();
+                injectUserScript();
+              }
+            });
+            observer.observe(document, {
+              childList: true,
+              subtree: true
+            });
+          }
         },
         args:[userScript],
-        world: 'MAIN'
+        world: 'ISOLATED'
       })
     }
   }
